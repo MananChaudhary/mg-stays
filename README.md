@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MG Stays
+
+AI-powered guest communication and hospitality platform for Airbnb and short-stay property hosts.
+
+## Features
+
+- **Premium landing page** — Marketing site with features, pricing, testimonials, and demo request
+- **Clerk authentication** — Sign up, sign in, forgot password, role-based access
+- **Host dashboard** — Overview stats, properties, bookings, messages, AI activity
+- **Property management** — Full property details for AI context (WiFi, parking, rules, FAQs)
+- **Guest stay pages** — `/stay/[bookingId]` — Digital concierge experience
+- **AI guest assistant** — Claude-powered replies using property-specific context
+- **Messaging inbox** — Review AI drafts, approve, edit, and send replies
+- **Escalation system** — AI escalates urgent issues and notifies hosts
+
+## Tech Stack
+
+- Next.js 16 (App Router)
+- TypeScript
+- Tailwind CSS v4
+- PostgreSQL + Prisma ORM
+- Clerk Authentication
+- Anthropic Claude API
+- Framer Motion
 
 ## Getting Started
 
-First, run the development server:
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure environment
+
+Copy `.env.example` to `.env` and fill in:
+
+```bash
+cp .env.example .env
+```
+
+Required variables:
+- `DATABASE_URL` — PostgreSQL connection string
+- `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` — From [clerk.com](https://clerk.com)
+- `CLERK_SECRET_KEY`
+- `ANTHROPIC_API_KEY` — From [console.anthropic.com](https://console.anthropic.com/settings/keys)
+
+### 3. Set up database
+
+```bash
+npx prisma migrate dev --name init
+npx prisma generate
+npm run db:seed
+```
+
+### 4. Run development server
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Project Structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+├── app/
+│   ├── (dashboard)/dashboard/   # Protected host dashboard
+│   ├── stay/[bookingId]/        # Public guest stay pages
+│   ├── sign-in/ sign-up/        # Auth pages
+│   └── api/                     # REST API routes
+├── components/
+│   ├── marketing/               # Landing page sections
+│   ├── dashboard/               # Dashboard UI
+│   ├── properties/              # Property forms
+│   ├── messages/                # Inbox UI
+│   └── guest/                   # Guest stay experience
+├── lib/
+│   ├── db.ts                    # Prisma client
+│   ├── auth.ts                  # Clerk + DB user sync
+│   └── ai.ts                    # Claude guest assistant
+└── generated/prisma/            # Prisma client output
+```
 
-## Learn More
+## API Routes
 
-To learn more about Next.js, take a look at the following resources:
+| Route | Method | Description |
+|-------|--------|-------------|
+| `/api/properties` | GET, POST | List/create properties |
+| `/api/properties/[id]` | GET, PATCH, DELETE | Property CRUD |
+| `/api/bookings` | GET, POST | List/create bookings |
+| `/api/messages/[conversationId]` | POST | Send/approve messages |
+| `/api/ai/chat` | POST | Guest AI chat (public) |
+| `/api/contact` | POST | Demo request form |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment (Vercel)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Push to GitHub
+2. Import project in Vercel
+3. Add environment variables from `.env.example`
+4. Add PostgreSQL (Vercel Postgres, Neon, or Supabase)
+5. Run `npx prisma migrate deploy` in build or post-deploy
 
-## Deploy on Vercel
+## Demo Guest Page
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+After seeding, visit: `/stay/demo-booking-sarah`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Future Roadmap
+
+- Airbnb / Booking.com / Vrbo integrations
+- WhatsApp messaging
+- Automated message sequences
+- Voice AI concierge
+- Revenue analytics
+- Team management
+
+## License
+
+Private — MG Stays

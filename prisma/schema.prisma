@@ -1,0 +1,295 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  ADMIN
+  PROPERTY_OWNER
+  STAFF
+}
+
+enum BookingStatus {
+  UPCOMING
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+}
+
+enum MessageStatus {
+  PENDING
+  AI_DRAFT
+  APPROVED
+  SENT
+  ESCALATED
+}
+
+enum MessageChannel {
+  IN_APP
+  AIRBNB
+  HOSTAWAY
+  BOOKING_COM
+  VRBO
+  WHATSAPP
+}
+
+enum NotificationType {
+  BOOKING
+  MESSAGE
+  AI_ESCALATION
+  CLEANING
+  SYSTEM
+}
+
+enum IntegrationPlatform {
+  AIRBNB
+  HOSTAWAY
+  BOOKING_COM
+  VRBO
+  WHATSAPP
+}
+
+enum IntegrationStatus {
+  DISCONNECTED
+  CONNECTED
+  SYNCING
+  ERROR
+}
+
+model User {
+  id            String   @id @default(cuid())
+  clerkId       String   @unique
+  email         String   @unique
+  firstName     String?
+  lastName      String?
+  imageUrl      String?
+  role          UserRole @default(PROPERTY_OWNER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  properties    Property[]
+  notifications Notification[]
+  sentMessages  Message[]      @relation("SentByUser")
+
+  @@index([clerkId])
+}
+
+model Property {
+  id                      String   @id @default(cuid())
+  name                    String
+  address                 String
+  city                    String?
+  country                 String?
+  description             String?  @db.Text
+  checkInInstructions     String?  @db.Text
+  wifiName                String?
+  wifiPassword            String?
+  parkingInstructions     String?  @db.Text
+  houseRules              String?  @db.Text
+  checkoutInstructions    String?  @db.Text
+  amenities               String[] @default([])
+  emergencyContacts       String?  @db.Text
+  buildingAccess          String?  @db.Text
+  cleaningTeamName        String?
+  cleaningTeamEmail       String?
+  cleaningTeamPhone       String?
+  faqs                    Json?
+  localRecommendations    String?  @db.Text
+  images                  String[] @default([])
+  isActive                Boolean  @default(true)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  ownerId                 String
+  owner                   User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  clientId                String?
+  client                  Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  source                  String   @default("manual")
+  externalPlatform        String?
+  externalListingId       String?
+  lastSyncedAt            DateTime?
+
+  bookings                Booking[]
+  conversations           Conversation[]
+  aiActivityLogs          AIActivityLog[]
+  cleaningAlerts          CleaningAlert[]
+
+  @@index([ownerId])
+  @@index([clientId])
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+  guestName       String
+  guestEmail      String?
+  guestPhone      String?
+  checkIn         DateTime
+  checkOut        DateTime
+  status          BookingStatus @default(UPCOMING)
+  platform        String?       @default("direct")
+  platformRef     String?
+  totalAmount     Float?
+  currency        String        @default("AUD")
+  notes           String?       @db.Text
+  welcomeMessage  String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  propertyId      String
+  property        Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  conversation    Conversation?
+  guestActivities GuestActivity[]
+
+  @@index([propertyId])
+  @@index([status])
+}
+
+model Conversation {
+  id          String   @id @default(cuid())
+  subject     String?
+  isResolved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  bookingId   String?  @unique
+  booking     Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  messages    Message[]
+
+  @@index([propertyId])
+}
+
+model Message {
+  id             String         @id @default(cuid())
+  content        String         @db.Text
+  isFromGuest    Boolean        @default(true)
+  status         MessageStatus  @default(SENT)
+  channel        MessageChannel @default(IN_APP)
+  aiGenerated    Boolean        @default(false)
+  aiConfidence   Float?
+  isSystemMessage Boolean       @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  conversationId String
+  conversation   Conversation   @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  sentByUserId   String?
+  sentByUser     User?          @relation("SentByUser", fields: [sentByUserId], references: [id])
+
+  @@index([conversationId])
+}
+
+model CleaningAlert {
+  id              String   @id @default(cuid())
+  guestMessage    String   @db.Text
+  summary         String   @db.Text
+  status          String   @default("SENT")
+  recipientName   String?
+  recipientEmail  String?
+  recipientPhone  String?
+  createdAt       DateTime @default(now())
+
+  propertyId      String
+  property        Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  bookingId       String?
+  conversationId  String?
+
+  @@index([propertyId])
+  @@index([conversationId])
+}
+
+model GuestActivity {
+  id          String   @id @default(cuid())
+  action      String
+  details     String?
+  createdAt   DateTime @default(now())
+
+  bookingId   String
+  booking     Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+}
+
+model AIActivityLog {
+  id          String   @id @default(cuid())
+  action      String
+  query       String?  @db.Text
+  response    String?  @db.Text
+  escalated   Boolean  @default(false)
+  confidence  Float?
+  createdAt   DateTime @default(now())
+
+  propertyId  String
+  property    Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  title     String
+  message   String
+  type      NotificationType @default(SYSTEM)
+  read      Boolean          @default(false)
+  link      String?
+  createdAt DateTime         @default(now())
+
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  company     String?
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  ownerId     String
+  properties  Property[]
+
+  @@index([ownerId])
+}
+
+model PlatformIntegration {
+  id            String              @id @default(cuid())
+  platform      IntegrationPlatform
+  status        IntegrationStatus   @default(DISCONNECTED)
+  accountLabel  String?
+  lastSyncAt    DateTime?
+  propertyCount Int                 @default(0)
+  messageCount  Int                 @default(0)
+  metadata      Json?
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  ownerId       String
+
+  @@unique([ownerId, platform])
+  @@index([ownerId])
+}
+
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  company   String?
+  message   String   @db.Text
+  createdAt DateTime @default(now())
+}
