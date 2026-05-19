@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/utils";
 import type { IntegrationPlatform } from "@/generated/prisma/client";
+import { AirbnbConnectLoadingButton } from "./airbnb-connect-button";
 
 interface IntegrationCardProps {
   platform: IntegrationPlatform;
@@ -21,6 +22,8 @@ interface IntegrationCardProps {
   lastSyncAt: string | null;
   propertyCount: number;
   messageCount: number;
+  connectionMode?: string | null;
+  airbnbOAuthEnabled?: boolean;
 }
 
 export function IntegrationCard(props: IntegrationCardProps) {
@@ -28,6 +31,8 @@ export function IntegrationCard(props: IntegrationCardProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const connected = props.status === "CONNECTED" || props.status === "SYNCING";
   const isWhatsApp = props.platform === "WHATSAPP";
+  const isAirbnb = props.platform === "AIRBNB";
+  const isOAuth = props.connectionMode === "oauth";
 
   async function runAction(action: "connect" | "sync" | "disconnect") {
     setLoading(action);
@@ -76,7 +81,12 @@ export function IntegrationCard(props: IntegrationCardProps) {
           <div>
             <h3 className="font-semibold text-neutral-900">{props.name}</h3>
             <p className="text-sm text-neutral-500">{props.description}</p>
-            {!isWhatsApp && props.listingCount > 0 && (
+            {isAirbnb && props.airbnbOAuthEnabled && (
+              <p className="mt-1 text-xs text-neutral-400">
+                Real connect: each host signs into their own Airbnb account
+              </p>
+            )}
+            {!isWhatsApp && !isOAuth && props.listingCount > 0 && (
               <p className="mt-1 text-xs text-neutral-400">
                 Demo: {props.listingCount} listings available to sync
               </p>
@@ -84,7 +94,13 @@ export function IntegrationCard(props: IntegrationCardProps) {
           </div>
         </div>
         <Badge variant={connected ? "success" : "secondary"}>
-          {props.status === "SYNCING" ? "Syncing…" : connected ? "Connected" : "Not connected"}
+          {props.status === "SYNCING"
+            ? "Syncing…"
+            : connected
+              ? isOAuth
+                ? "Connected (Airbnb)"
+                : "Connected"
+              : "Not connected"}
         </Badge>
       </div>
 
@@ -113,9 +129,17 @@ export function IntegrationCard(props: IntegrationCardProps) {
 
       <div className="mt-4 flex flex-wrap gap-2">
         {!connected ? (
-          <Button size="sm" onClick={() => runAction("connect")} disabled={!!loading}>
-            {loading === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect"}
-          </Button>
+          isAirbnb ? (
+            <AirbnbConnectLoadingButton
+              loading={loading === "connect"}
+              oauthEnabled={!!props.airbnbOAuthEnabled}
+              onDemoConnect={() => runAction("connect")}
+            />
+          ) : (
+            <Button size="sm" onClick={() => runAction("connect")} disabled={!!loading}>
+              {loading === "connect" ? <Loader2 className="h-4 w-4 animate-spin" /> : "Connect"}
+            </Button>
+          )
         ) : (
           <>
             <Button

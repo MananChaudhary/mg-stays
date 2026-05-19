@@ -6,7 +6,11 @@ import {
   NotificationType,
 } from "@/generated/prisma/client";
 import { db } from "../db";
-import { PLATFORM_CONFIG, type ImportedProperty } from "./platforms";
+import { airbnbConnectionKey } from "./airbnb/config";
+import { syncAirbnbFromApi } from "./airbnb/sync-real";
+import { getAirbnbIntegration } from "./airbnb/tokens";
+import { PLATFORM_CONFIG } from "./platforms";
+import { upsertImportedProperty } from "./sync-property";
 
 function platformDisplayName(source: string) {
   const names: Record<string, string> = {
@@ -17,50 +21,6 @@ function platformDisplayName(source: string) {
     whatsapp: "WhatsApp",
   };
   return names[source] ?? source;
-}
-
-async function upsertImportedProperty(
-  ownerId: string,
-  p: ImportedProperty,
-  source: string
-) {
-  const existing = await db.property.findFirst({
-    where: { ownerId, externalListingId: p.externalListingId },
-  });
-
-  const data = {
-    name: p.name,
-    address: p.address,
-    city: p.city,
-    country: p.country ?? "Australia",
-    description: p.description,
-    wifiName: p.wifiName,
-    wifiPassword: p.wifiPassword,
-    checkInInstructions: p.checkInInstructions,
-    parkingInstructions: p.parkingInstructions,
-    houseRules: p.houseRules,
-    checkoutInstructions: p.checkoutInstructions,
-    buildingAccess: p.buildingAccess,
-    amenities: p.amenities ?? ["WiFi"],
-    images: p.images ?? [],
-    source,
-    externalPlatform: source,
-    externalListingId: p.externalListingId,
-    lastSyncedAt: new Date(),
-    isActive: true,
-  };
-
-  if (existing) {
-    return {
-      property: await db.property.update({ where: { id: existing.id }, data }),
-      created: false,
-    };
-  }
-
-  return {
-    property: await db.property.create({ data: { ...data, ownerId } }),
-    created: true,
-  };
 }
 
 async function ensureBookingAndMessages(
@@ -216,9 +176,27 @@ async function seedPlatformBookings(
   }
 }
 
-export async function syncPlatform(ownerId: string, platform: IntegrationPlatform) {
+export async function syncPlatform(
+  ownerId: string,
+  platform: IntegrationPlatform,
+  clientId?: string | null
+) {
+  if (platform === IntegrationPlatform.AIRBNB) {
+    const oauthIntegration = await getAirbnbIntegration(ownerId, clientId);
+    if (oauthIntegration?.connectionMode === "oauth" && oauthIntegration.accessToken) {
+      return syncAirbnbFromApi(ownerId, clientId);
+    }
+  }
+
+  const connectionKey =
+    platform === IntegrationPlatform.AIRBNB
+      ? airbnbConnectionKey(clientId)
+      : "default";
+
   const integration = await db.platformIntegration.findUnique({
-    where: { ownerId_platform: { ownerId, platform } },
+    where: {
+      ownerId_platform_connectionKey: { ownerId, platform, connectionKey },
+    },
   });
 
   if (!integration || integration.status === IntegrationStatus.DISCONNECTED) {

@@ -263,6 +263,7 @@ model Client {
 
   ownerId     String
   properties  Property[]
+  integrations PlatformIntegration[]
 
   @@index([ownerId])
 }
@@ -276,13 +277,24 @@ model PlatformIntegration {
   propertyCount Int                 @default(0)
   messageCount  Int                 @default(0)
   metadata      Json?
+  /// "default" for your account, or a Client.id when connecting a host client's Airbnb
+  connectionKey String              @default("default")
+  clientId      String?
+  client        Client?             @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  /// oauth | demo
+  connectionMode String             @default("demo")
+  accessToken   String?             @db.Text
+  refreshToken  String?             @db.Text
+  tokenExpiresAt DateTime?
+  externalUserId String?
   createdAt     DateTime            @default(now())
   updatedAt     DateTime            @updatedAt
 
   ownerId       String
 
-  @@unique([ownerId, platform])
+  @@unique([ownerId, platform, connectionKey])
   @@index([ownerId])
+  @@index([clientId])
 }
 
 model ContactSubmission {

@@ -6,7 +6,7 @@ import { SyncAllButton } from "@/components/integrations/sync-all-button";
 import { Button } from "@/components/ui/button";
 import { getCurrentDbUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { PLATFORM_CONFIG } from "@/lib/integrations";
+import { isAirbnbOAuthConfigured, PLATFORM_CONFIG } from "@/lib/integrations";
 import { IntegrationPlatform, IntegrationStatus } from "@/generated/prisma/client";
 
 const PLATFORM_ORDER: IntegrationPlatform[] = [
@@ -25,11 +25,17 @@ const DISPLAY_NAMES: Record<IntegrationPlatform, string> = {
   [IntegrationPlatform.WHATSAPP]: "WhatsApp",
 };
 
-export default async function IntegrationsPage() {
+export default async function IntegrationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ airbnb?: string; message?: string }>;
+}) {
   const user = await getCurrentDbUser();
+  const params = await searchParams;
   const integrations = await db.platformIntegration.findMany({
     where: { ownerId: user?.id ?? "" },
   });
+  const airbnbOAuthEnabled = isAirbnbOAuthConfigured();
 
   const connectedCount = integrations.filter(
     (i) =>
@@ -37,11 +43,19 @@ export default async function IntegrationsPage() {
       i.platform !== IntegrationPlatform.WHATSAPP
   ).length;
 
+  const defaultAirbnb = integrations.find(
+    (i) =>
+      i.platform === IntegrationPlatform.AIRBNB && i.connectionKey === "default"
+  );
+  const clientAirbnbConnections = integrations.filter(
+    (i) => i.platform === IntegrationPlatform.AIRBNB && i.connectionKey !== "default"
+  );
+
   return (
     <>
       <DashboardHeader
         title="Integrations"
-        description="Import properties from Airbnb, Hostaway & more — or add listings manually"
+        description="Connect each host's Airbnb account, or import demo data for other platforms"
         action={
           <div className="flex flex-wrap gap-2">
             <SyncAllButton connectedCount={connectedCount} />
@@ -55,36 +69,84 @@ export default async function IntegrationsPage() {
         }
       />
       <div className="space-y-6 p-8">
+        {params.airbnb === "setup" && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <strong>Airbnb API keys needed.</strong> Register at{" "}
+            <a
+              href="https://developer.airbnb.com"
+              className="underline"
+              target="_blank"
+              rel="noreferrer"
+            >
+              developer.airbnb.com
+            </a>
+            , then set <code>AIRBNB_CLIENT_ID</code> and <code>AIRBNB_CLIENT_SECRET</code> in
+            Vercel (redirect:{" "}
+            <code>{process.env.NEXT_PUBLIC_APP_URL}/api/integrations/airbnb/callback</code>).
+          </div>
+        )}
+        {params.airbnb === "connected" && params.message && (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            {decodeURIComponent(params.message)}
+          </div>
+        )}
+        {params.airbnb === "error" && params.message && (
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900">
+            {decodeURIComponent(params.message)}
+          </div>
+        )}
+
         <div className="rounded-2xl border border-neutral-200 bg-white p-5">
-          <h3 className="font-semibold text-neutral-900">How property import works</h3>
+          <h3 className="font-semibold text-neutral-900">Connecting your clients&apos; Airbnbs</h3>
           <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-neutral-600">
             <li>
-              <strong>Connect</strong> a platform (Airbnb, Hostaway, Booking.com, Vrbo).
+              Create a <strong>Client</strong> in MG Stays for each host you manage.
             </li>
             <li>
-              <strong>Sync</strong> to pull listings, WiFi, check-in details, and sample guest
-              messages into MG Stays.
+              Open their client page → <strong>Connect client&apos;s Airbnb</strong> (they must sign
+              in with their Airbnb host account — you cannot skip this step).
             </li>
             <li>
-              <strong>Add manually</strong> any property that is not on a platform — boutique
-              stays, direct bookings, or one-offs.
+              Click <strong>Sync</strong> on the Airbnb card to pull their listings into Neon.
             </li>
           </ol>
           <p className="mt-3 text-xs text-neutral-500">
-            Demo mode simulates OAuth. Production requires Airbnb Partner API, Hostaway API key,
-            etc.
+            One Airbnb login = one connection. Ten clients = ten separate connect flows.
           </p>
         </div>
 
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <strong>Demo mode:</strong> Sync imports realistic sample listings per platform.
-          Re-sync updates existing properties matched by listing ID.
-        </div>
+        {clientAirbnbConnections.length > 0 && (
+          <div className="rounded-2xl border border-neutral-100 bg-white p-5">
+            <h3 className="font-semibold">Client Airbnb connections</h3>
+            <ul className="mt-3 space-y-2 text-sm">
+              {clientAirbnbConnections.map((i) => (
+                <li key={i.id} className="flex justify-between gap-2">
+                  <span>{i.accountLabel ?? "Airbnb host"}</span>
+                  <Link
+                    href={
+                      i.clientId
+                        ? `/dashboard/clients/${i.clientId}`
+                        : "/dashboard/clients"
+                    }
+                    className="text-amber-700 hover:underline"
+                  >
+                    View client
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="grid gap-6 lg:grid-cols-2">
           {PLATFORM_ORDER.map((platform) => {
             const config = PLATFORM_CONFIG[platform];
-            const found = integrations.find((i) => i.platform === platform);
+            const found =
+              platform === IntegrationPlatform.AIRBNB
+                ? defaultAirbnb
+                : integrations.find(
+                    (i) => i.platform === platform && i.connectionKey === "default"
+                  );
             return (
               <IntegrationCard
                 key={platform}
@@ -99,6 +161,8 @@ export default async function IntegrationsPage() {
                 lastSyncAt={found?.lastSyncAt?.toISOString() ?? null}
                 propertyCount={found?.propertyCount ?? 0}
                 messageCount={found?.messageCount ?? 0}
+                connectionMode={found?.connectionMode ?? null}
+                airbnbOAuthEnabled={airbnbOAuthEnabled}
               />
             );
           })}
