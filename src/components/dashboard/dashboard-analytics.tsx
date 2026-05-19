@@ -94,25 +94,12 @@ export function DashboardAnalytics({
           <p className="mt-1 text-sm text-neutral-500">
             From manual entry and platform sync
           </p>
-          <div className="mt-6 space-y-4">
-            {stats.sourceBreakdown.length === 0 ? (
-              <p className="text-sm text-neutral-500">No properties yet.</p>
-            ) : (
-              stats.sourceBreakdown.map((row) => (
-                <div key={row.source}>
-                  <div className="mb-1 flex items-center justify-between text-sm">
-                    <PropertySourceBadge source={row.source} />
-                    <span className="font-medium">{row.count}</span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
-                    <div
-                      className={`h-full rounded-full ${PLATFORM_COLORS[row.source] ?? "bg-neutral-400"}`}
-                      style={{ width: `${(row.count / maxSource) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))
-            )}
+          <div className="mt-6">
+            <DashboardPieChart
+              slices={propertyPieSlices}
+              emptyMessage="No properties yet."
+              centerLabel={String(stats.propertyCount)}
+            />
           </div>
           <Button variant="outline" size="sm" className="mt-6 w-full" asChild>
             <Link href="/dashboard/properties">View all properties</Link>

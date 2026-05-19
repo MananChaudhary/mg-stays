@@ -143,7 +143,7 @@ export function PropertiesCalendar({ properties }: { properties: CalendarPropert
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <motion className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="outline" size="sm" onClick={goToday}>
             Today
           </Button>
@@ -156,7 +156,7 @@ export function PropertiesCalendar({ properties }: { properties: CalendarPropert
           <span className="px-2 text-sm font-medium text-neutral-700">
             {formatMonthYear(viewStart)} – {formatMonthYear(viewEnd)}
           </span>
-        </motion>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="secondary">{properties.length} listings</Badge>
           <Badge variant="secondary">{stats.bookingsInView} stays in view</Badge>
@@ -256,7 +256,7 @@ export function PropertiesCalendar({ properties }: { properties: CalendarPropert
             {filteredProperties.length === 0 ? (
               <div className="px-6 py-12 text-center text-sm text-neutral-500">
                 No listings match your filters.
-              </motion>
+              </div>
             ) : (
               filteredProperties.map((property) => (
                 <div
@@ -283,7 +283,7 @@ export function PropertiesCalendar({ properties }: { properties: CalendarPropert
                     className="relative shrink-0"
                     style={{ width: gridWidth, height: 72 }}
                   >
-                    <motion className="absolute inset-0 flex">
+                    <div className="absolute inset-0 flex">
                       {days.map((day, i) => {
                         const isToday = isSameDay(day, today);
                         return (
@@ -300,7 +300,7 @@ export function PropertiesCalendar({ properties }: { properties: CalendarPropert
                           />
                         );
                       })}
-                    </motion>
+                    </div>
 
                     {property.bookings.map((booking) => {
                       const span = getBookingSpan(
@@ -354,7 +354,7 @@ export function PropertiesCalendar({ properties }: { properties: CalendarPropert
             )}
           </div>
         </div>
-      </motion>
+      </div>
 
       <div className="flex flex-wrap gap-3 text-xs text-neutral-500">
         {PLATFORM_FILTERS.filter((f) => f.id !== "all").map((f) => (
@@ -369,14 +369,4 @@ export function PropertiesCalendar({ properties }: { properties: CalendarPropert
       </div>
     </div>
   );
-}
-
-function motion({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return <motion className={className}>{children}</motion>;
 }
